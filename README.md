@@ -16,7 +16,7 @@ Userbot Telegram pribadi dengan fitur lengkap untuk manajemen grup, broadcast, O
 pkg update && pkg upgrade
 pkg install python git
 pip install pyrogram psutil requests pillow
-git clone https://github.com/USERNAME/AkeoUserbot.git
+git clone https://github.com/akeorunyrd-ai/AkeoUserbot.git
 cd AkeoUserbot
 cp config.example.py config.py
 nano config.py  # Isi API_ID & API_HASH
