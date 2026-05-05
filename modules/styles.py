@@ -1,12 +1,16 @@
-# modules/styles.py
 def success(text, title="BERHASIL"):
-    return f"✅ **{title}:** {text}"
+    return f"✅ **{title}**\n━━━━━━━━━━━━━━━━━━━━━━━\n{text}"
 
 def error(text, title="GAGAL"):
-    return f"❌ **{title}:** {text}"
+    return f"❌ **{title}**\n━━━━━━━━━━━━━━━━━━━━━━━\n`{text}`"
 
 def info(text, title="INFO"):
-    return f"ℹ️ **{title}:** {text}"
+    return f"ℹ️ **{title}**\n━━━━━━━━━━━━━━━━━━━━━━━\n{text}"
 
 def result_box(title, content, icon="📊"):
-    return f"{icon} **{title}**\n{content}"
+    return (
+        f"{icon} **{title}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{content}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━"
+    )
