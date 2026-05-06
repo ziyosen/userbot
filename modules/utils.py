@@ -28,7 +28,7 @@ async def ping_command(client, message):
 @app.on_message(filters.command("alive", ".") & filters.me)
 async def alive_command(client, message):
     mod_count = len([f for f in os.listdir("modules") if f.endswith('.py')])
-    dev_link = "[Bleszh](tg://user?id=me)"
+    dev_link = "[Bleszh](https://t.me/Bleszh)"
     
     content = (
         f"👤 **User:** {client.me.first_name}\n"
