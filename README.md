@@ -16,6 +16,7 @@ git clone https://github.com/ziyosen/AkeoUserbot.git
 cd AkeoUserbot
 
 # 3. Instalasi Library Python
+cp config.example.py config.py
 pip install -r requirements.txt
 # Install screen
 pkg install screen -y
