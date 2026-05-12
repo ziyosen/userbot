@@ -1,104 +1,77 @@
 import os
 import uuid
-import threading
 import asyncio
 import yt_dlp
-from flask import Flask, request, jsonify
 from pyrogram import filters
 from concurrent.futures import ThreadPoolExecutor
-
-# Mengambil objek 'app' dari app.py
 from app import app
-from modules.styles import result_box, error, success
+from modules.styles import error, success
 
-# --- KONFIGURASI ---
-DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
+DOWNLOAD_DIR = "downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+executor = ThreadPoolExecutor(max_workers=2)
 
-executor = ThreadPoolExecutor(max_workers=3)
-progress_store = {}
-
-# --- MINI FLASK SERVER ---
-flask_app = Flask(__name__)
-
-@flask_app.route("/")
-def index():
-    return "<h1>Benxx YTDL Dashboard Running</h1>"
-
-# Jalankan Flask di Thread terpisah
-def run_flask():
-    flask_app.run(host="0.0.0.0", port=7860, debug=False, use_reloader=False)
-
-threading.Thread(target=run_flask, daemon=True).start()
-
-# --- LOGIKA DOWNLOAD (YT-DLP) ---
-def sync_download(url, job_id, fmt="mp4"):
+def download_yt(url: str, format_type: str = "video") -> str | None:
+    """Download YouTube video/audio. format_type: 'video' (360p) atau 'audio' (mp3)"""
+    job_id = str(uuid.uuid4())
+    out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}%(title)s.%(ext)s")
+    ydl_opts = {
+        "outtmpl": out_template,
+        "nocheckcertificate": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    if format_type == "audio":
+        ydl_opts.update({
+            "format": "bestaudio/best",
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }],
+        })
+    else:  # video 360p
+        ydl_opts["format"] = "bestvideo[height<=360]+bestaudio/best / best[height<=360]"
+    
     try:
-        out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}-----%(title)s.%(ext)s")
-        ydl_opts = {
-            "outtmpl": out_template,
-            "nocheckcertificate": True,
-            "quiet": True,
-        }
-
-        if fmt == "mp3":
-            ydl_opts.update({
-                "format": "bestaudio/best",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
-            })
-        else:
-            ydl_opts.update({"format": "bestvideo[height<=720]+bestaudio/best"})
-
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
-            if fmt == "mp3":
+            if format_type == "audio":
                 filename = os.path.splitext(filename)[0] + ".mp3"
             return filename
     except Exception as e:
-        progress_store[job_id] = {"error": str(e)}
+        print(f"Download error: {e}")
         return None
 
-# --- COMMAND USERBOT (.yt & .yta) ---
 @app.on_message(filters.command("yt", ".") & filters.me)
-async def youtube_video(client, message):
+async def yt_video(client, message):
     if len(message.command) < 2:
         return await message.edit(error("Masukkan URL YouTube!"))
-    
     url = message.command[1]
-    await message.edit("📥 **Memproses Video (MP4)...**")
-    
+    status = await message.edit("📥 **Mendownload video (360p)...**")
     loop = asyncio.get_event_loop()
-    file_path = await loop.run_in_executor(executor, sync_download, url, "vid")
-
+    file_path = await loop.run_in_executor(executor, download_yt, url, "video")
     if file_path and os.path.exists(file_path):
-        await message.edit("📤 **Mengirim Video...**")
-        await client.send_video(chat_id=message.chat.id, video=file_path)
+        await status.edit("📤 **Mengirim video...**")
+        await client.send_video(message.chat.id, video=file_path, caption="🎬 Video dari YouTube")
         os.remove(file_path)
         await message.delete()
     else:
-        await message.edit(error("Gagal mendownload video."))
+        await status.edit(error("Gagal download video. Coba link lain."))
 
 @app.on_message(filters.command("yta", ".") & filters.me)
-async def youtube_audio(client, message):
+async def yt_audio(client, message):
     if len(message.command) < 2:
         return await message.edit(error("Masukkan URL YouTube!"))
-    
     url = message.command[1]
-    await message.edit("🎵 **Memproses Audio (MP3)...**")
-    
+    status = await message.edit("🎵 **Mendownload audio (MP3)...**")
     loop = asyncio.get_event_loop()
-    file_path = await loop.run_in_executor(executor, sync_download, url, "aud", "mp3")
-
+    file_path = await loop.run_in_executor(executor, download_yt, url, "audio")
     if file_path and os.path.exists(file_path):
-        await message.edit("📤 **Mengirim Audio...**")
-        await client.send_audio(chat_id=message.chat.id, audio=file_path)
+        await status.edit("📤 **Mengirim audio...**")
+        await client.send_audio(message.chat.id, audio=file_path, title="Audio dari YouTube")
         os.remove(file_path)
         await message.delete()
     else:
-        await message.edit(error("Gagal mendownload audio."))
+        await status.edit(error("Gagal download audio."))
